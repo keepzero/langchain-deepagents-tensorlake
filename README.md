@@ -97,48 +97,28 @@ agent = create_deep_agent(model="openai:gpt-4.1", backend=combined)
 
 ### Paths and file operations
 
-Paths are virtual absolute POSIX paths rooted within the supplied volume. Root
-is accepted for directory operations; file operations reject root. Paths with
-`..` or `~` components, a NUL, backslashes, or a double leading slash are rejected.
-Repeated internal separators and `.` segments are normalized. Dotfiles and dot
-directories are accessible; symlinks are omitted from listings and searches.
-Basename glob patterns match at any depth, including inside dot directories;
-recursive `**` patterns require explicitly matching dot-directory segments.
+Use absolute POSIX paths within the supplied volume. Traversal paths are
+rejected; dotfiles are supported, and symlinks are skipped in listings and
+searches. Root is only valid for directory operations.
 
-- Text reads preserve trailing newlines, normalize line endings to LF, and return
-  pagination metadata. Negative offsets read from the beginning; non-positive
-  limits perform no storage read.
-  Supported binary previews return base64 with a 500 KiB limit; raw downloads
-  preserve bytes. Invalid UTF-8 in text files returns a binary-file error.
-- `write` is create-only and returns `file_exists` for an existing file. `edit`
-  requires a unique exact match unless `replace_all=True`; upload can replace
-  existing content. `delete` delegates one path to the SDK and rejects root.
-- Uploads validate all paths and sizes, rejecting duplicate normalized paths,
-  before one `write_files` publication. Downloads return one result per path.
-- Reads and searches use explicit remote version IDs. Empty volumes are handled
-  before attempting to access a nonexistent head.
+- Text reads support pagination; binary previews are limited to 500 KiB.
+  Use downloads for raw bytes. Reads and searches use a fixed volume version.
+- `write` creates files; `edit` requires a unique exact match unless
+  `replace_all=True`. Uploads can replace existing files.
+- Uploads validate the batch before one SDK write; downloads return a result
+  for each path.
 
 ### Ownership, limits, and errors
 
-The backend does not serialize file operations or accept an external lock.
-The existence check in `write` and the read-modify-write sequence in `edit`
-are not atomic and do not use conditional writes. The application must
-coordinate conflicting access to the same volume, including access through
-other backend instances, sandbox commands, or workers.
+The caller manages volumes, credentials, sandbox lifecycle, and retained
+snapshots. Keep credentials outside agent-visible files.
 
-Async methods run synchronous SDK work in worker threads. A filesystem resolver
-is called inside each operation, with context variables propagated to those
-threads. The supplied filesystem and resolver must support concurrent calls,
-or the application must serialize access to them.
+The backend does not lock file operations. Callers must coordinate conflicting
+access: `write` existence checks and `edit` read-modify-write are not atomic.
+Async methods use worker threads; supplied filesystems and resolvers must
+support concurrent calls or be serialized by the caller.
 
-The caller selects and manages the volume, credentials, access policy, and
-retained snapshots. The backend does not create volumes, start sandboxes, or
-retain snapshots. File mutations produce working versions; the caller decides
-when to retain a permanent snapshot. SDK writes, sandbox mounts, and application
-database transactions are not one atomic operation. Keep API credentials outside
-agent-visible files.
-
-Processing budgets can be set in the constructor and must be positive integers:
+Constructor limits must be positive integers:
 
 | Option | Default | Limit |
 | --- | --- | --- |
@@ -146,14 +126,9 @@ Processing budgets can be set in the constructor and must be positive integers:
 | `max_search_files` | 10,000 | Entries visited during a search |
 | `max_search_bytes` | 64 MiB | Content bytes inspected by grep |
 
-These are client processing budgets, not storage quotas. The SDK returns full
-file bytes before the read-size check, so they do not bound network transfer or
-allocation for an oversized remote file. Search errors or truncation indicate
-that callers should narrow the search scope.
-
-Storage errors are returned without raw provider messages, which may contain
-credentials or signed URLs. Authentication and permission failures remain
-distinct from missing files and are not treated as permission to create a file.
+These are processing limits, not storage quotas. Files are downloaded in full
+before read-size checks. Storage errors omit raw provider details; authentication
+and permission failures remain distinct from missing files.
 
 See the [Deep Agents backend documentation](https://docs.langchain.com/oss/python/deepagents/backends),
 [Tensorlake Cloud Volume HTTP API](https://docs.tensorlake.ai/filesystems/http-api),

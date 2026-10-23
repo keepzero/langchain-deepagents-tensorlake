@@ -837,7 +837,7 @@ wheels = [
 
 [[package]]
 name = "langchain-deepagents-tensorlake"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "deepagents" },
