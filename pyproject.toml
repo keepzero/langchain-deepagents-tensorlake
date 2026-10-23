@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-deepagents-tensorlake"
-description = "Tensorlake sandbox integration for Deep Agents"
-license = { text = "Apache-2.0" }
+description = "Tensorlake sandbox and Cloud Volume filesystem backends for Deep Agents"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
 version = "0.0.1"
 
 classifiers = [
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -22,8 +22,8 @@ classifiers = [
 
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "deepagents>=0.6.0,<0.7",
-    "tensorlake>=0.5.9",
+    "deepagents>=0.7",
+    "tensorlake>=0.5.151,<0.6",
 ]
 
 [project.urls]
@@ -79,14 +79,17 @@ omit = ["tests/*"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config --durations=5"
-testpaths = ["tests"]
+testpaths = ["tests/unit_tests"]
 markers = [
     "requires: mark tests as requiring a specific library",
     "compile: mark placeholder test used to compile integration tests without running them",
     "scheduled: mark tests to run in scheduled testing",
+    "integration: requires a real Tensorlake project",
 ]
 asyncio_mode = "auto"
 filterwarnings = []
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = ["D", "S101"]
+"tests/**/test_filesystem.py" = ["ARG005", "PLR2004"]
+"tests/**/test_backend_contract.py" = ["ARG005", "PLR2004"]

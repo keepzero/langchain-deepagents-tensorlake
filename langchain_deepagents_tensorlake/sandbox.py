@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from typing import TYPE_CHECKING
@@ -20,8 +21,10 @@ from deepagents.backends.sandbox import (
     TRUNCATION_MSG,
     BaseSandbox,
 )
-from deepagents.backends.utils import _get_file_type
+from deepagents.backends.utils import _get_backend_read_file_type
 from tensorlake.sandbox.exceptions import SandboxError as TensorlakeSandboxError
+
+from langchain_deepagents_tensorlake._utils import slice_read_response
 
 if TYPE_CHECKING:
     from tensorlake.sandbox import Sandbox as TensorlakeSandboxClient
@@ -98,7 +101,7 @@ class TensorlakeSandbox(BaseSandbox):
         except TensorlakeSandboxError as exc:
             return ReadResult(error=f"File '{file_path}': {exc}")
 
-        is_binary = _get_file_type(file_path) != "text"
+        is_binary = _get_backend_read_file_type(file_path) != "text"
         if not is_binary:
             try:
                 raw.decode("utf-8")
@@ -120,32 +123,44 @@ class TensorlakeSandbox(BaseSandbox):
                 )
             )
 
-        try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            text = raw.decode("utf-8", errors="replace")
-
-        lines = text.splitlines()
-        if not lines:
-            return ReadResult(file_data=FileData(content="", encoding="utf-8"))
-        if offset >= len(lines):
-            return ReadResult(
-                error=f"Line offset {offset} exceeds file length ({len(lines)} lines)"
-            )
-        page = "\n".join(lines[offset : offset + limit])
+        result = slice_read_response(
+            FileData(content=raw.decode("utf-8"), encoding="utf-8"), offset, limit
+        )
+        if result.file_data is None:
+            return result
+        page = result.file_data["content"]
         encoded = page.encode("utf-8")
         msg_bytes = len(TRUNCATION_MSG.encode("utf-8"))
         if len(encoded) > MAX_OUTPUT_BYTES - msg_bytes:
-            page = (
-                encoded[: MAX_OUTPUT_BYTES - msg_bytes].decode("utf-8", errors="ignore")
-                + TRUNCATION_MSG
+            prefix = encoded[: MAX_OUTPUT_BYTES - msg_bytes].decode(
+                "utf-8", errors="ignore"
             )
-        return ReadResult(
-            file_data=FileData(
-                content=page,
-                encoding="utf-8",
+            # Resume at the partial boundary line. Advance for an oversized first
+            # line, matching BaseSandbox's pagination progress guarantee.
+            next_offset = max(0, int(offset)) + max(1, prefix.count("\n"))
+            return ReadResult(
+                file_data=FileData(content=prefix + TRUNCATION_MSG, encoding="utf-8"),
+                total_lines=result.total_lines,
+                start_line=result.start_line,
+                end_line=next_offset,
+                next_offset=(
+                    next_offset
+                    if result.total_lines is not None
+                    and next_offset < result.total_lines
+                    else None
+                ),
             )
-        )
+        return result
+
+    async def aread(
+        self, file_path: str, offset: int = 0, limit: int = 2000
+    ) -> ReadResult:
+        """Read through the native SDK with the same pagination as sync reads."""
+        return await asyncio.to_thread(self.read, file_path, offset, limit)
+
+    async def awrite(self, file_path: str, content: str) -> WriteResult:
+        """Use the same native create-only operation for async writes."""
+        return await asyncio.to_thread(self.write, file_path, content)
 
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
         """Download files from the sandbox using the native read_file API."""
