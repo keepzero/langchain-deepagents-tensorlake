@@ -36,7 +36,7 @@ PYTHON_FILES=.
 lint format: PYTHON_FILES=.
 lint_diff format_diff: PYTHON_FILES=$(shell git diff --relative=libs/partners/tensorlake --name-only --diff-filter=d main | grep -E '\.py$$|\.ipynb$$')
 lint_package: ## Lint only the package
-lint_package: PYTHON_FILES=langchain_tensorlake
+lint_package: PYTHON_FILES=langchain_deepagents_tensorlake
 
 lint: ## Run linters and type checker
 lint lint_diff lint_package:
@@ -46,7 +46,7 @@ lint lint_diff lint_package:
 
 type: ## Run type checker
 type typecheck:
-	uv run --all-groups ty check langchain_tensorlake
+	uv run --all-groups ty check langchain_deepagents_tensorlake
 
 format: ## Run code formatters
 format format_diff:
