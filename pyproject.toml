@@ -8,7 +8,7 @@ description = "Tensorlake sandbox and Cloud Volume filesystem backends for Deep 
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 readme = "README.md"
-version = "0.1.0"
+version = "0.1.1"
 
 classifiers = [
     "Intended Audience :: Developers",
@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tensorlakeai/langchain-deepagents-tensorlake"
-Repository = "https://github.com/tensorlakeai/langchain-deepagents-tensorlake"
+Homepage = "https://github.com/keepzero/langchain-deepagents-tensorlake"
+Repository = "https://github.com/keepzero/langchain-deepagents-tensorlake"
 
 [tool.hatch.build.targets.wheel]
 packages = ["langchain_deepagents_tensorlake"]

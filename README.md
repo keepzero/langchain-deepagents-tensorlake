@@ -65,7 +65,7 @@ from tensorlake.filesystem import FilesystemClient
 
 from langchain_deepagents_tensorlake import TensorlakeFilesystemBackend
 
-filesystem = FilesystemClient().get("agent-workspace")
+filesystem = FilesystemClient().get("agent-scratch")
 backend = TensorlakeFilesystemBackend(filesystem)
 agent = create_deep_agent(model="openai:gpt-4.1", backend=backend)
 
